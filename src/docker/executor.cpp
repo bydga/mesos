@@ -223,24 +223,22 @@ public:
       // The docker daemon might still be in progress starting the
       // container, therefore we kill both the docker run process
       // and also ask the daemon to stop the container.
-      time_t start = time(NULL);
+      Time start = Clock::now();
       stop = docker->stop(containerName, stopTimeout);
       // Wait for the docker stop process to finish.
-      stop.get();
-      time_t end = time(NULL);
+      stop.await(stopTimeout);
+      Duration took = Clock::now() - start;
+
       // Now we can safely terminate the run process itself. Otherwise
       // the stderr/stdout streams would get corrupted - and the container
       // can likely print something during the termination process.
       // Making a mutable copy of the future so we can call discard.
       run->discard();
 
-      int took = (int) end - start;
-      int timeout = (int) stopTimeout.secs();
-
       // If the stop command took less than timeout,
       // it was "gracefully" stopped by SIGTERM. Otherwise SIGKILL
       // was issued by docker daemon.
-      if (took < timeout ) {
+      if (took < stopTimeout ) {
         killed = false;
       }
       else {
